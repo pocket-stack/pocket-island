@@ -459,6 +459,8 @@ int main(void) {
   if (!receipt)
     return 6;
 #endif
+  P3D_SkinLight light;
+  island_light(&light);
   unsigned frame = 0;
   uint32_t pending_actions = 0;
   uint64_t last = osGetTime();
@@ -669,7 +671,6 @@ int main(void) {
       p3d_begin(&shadow_vp);
       p3d_draw(&shadow);
     }
-    const P3D_SkinLight light = {{-.42f, .82f, .38f}, .69f, .31f};
     if (!p3d_skin_begin(&vp, &light)) return 10;
     for (unsigned i = 0; i < actor_count; i++) p3d_skin_draw(&avatar, palettes[i], visibility[i]);
     top_ui();

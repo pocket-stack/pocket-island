@@ -10,6 +10,8 @@ typedef struct {
   float action_time;
 } IslandSnapshot;
 Island *island_new(void);
+void island_light(P3D_SkinLight *);
+_Static_assert(sizeof(P3D_SkinLight) == 20, "Island light ABI");
 Island *island_replica(const Island *, float x, float z, float phase);
 typedef struct IslandSkinMesh IslandSkinMesh;
 IslandSkinMesh *island_skin_new(const Island *);

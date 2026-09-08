@@ -8,10 +8,11 @@ use alloc::{
     vec,
     vec::Vec,
 };
+use pocket3d_anim::NodeTrs;
 use pocket3d_anim::glam::{Mat4, Quat, Vec3};
-use pocket3d_anim::{
-    NodeTrs,
-    mesh::{ColorVertex, MeshAsset, SkinMatrix},
+use pocket3d_mesh::{
+    colored::{ColorVertex, MeshAsset},
+    rigid::SkinMatrix,
 };
 
 mod layout {
@@ -270,8 +271,13 @@ impl Default for Island {
 }
 /// Island's lighting palette is application policy, shared by its CPU reference
 /// and its native GPU adapter.
-fn island_light() -> pocket3d_anim::mesh::DirectionalLight {
-    pocket3d_anim::mesh::DirectionalLight::new(Vec3::new(-0.42, 0.82, 0.38), 0.69, 0.31).unwrap()
+pub const fn light_parameters() -> ([f32; 3], f32, f32) {
+    ([-0.42, 0.82, 0.38], 0.69, 0.31)
+}
+fn island_light() -> pocket3d_mesh::colored::DirectionalLight {
+    let (direction, ambient, diffuse) = light_parameters();
+    pocket3d_mesh::colored::DirectionalLight::new(Vec3::from_array(direction), ambient, diffuse)
+        .unwrap()
 }
 impl Island {
     pub fn new() -> Self {
@@ -529,9 +535,7 @@ impl Island {
         if self.blend < 1. {
             for (i, n) in self.locals.iter_mut().enumerate() {
                 let old = self.old_locals[i];
-                n.translation = old.translation.lerp(n.translation, self.blend);
-                n.rotation = old.rotation.slerp(n.rotation, self.blend);
-                n.scale = old.scale.lerp(n.scale, self.blend);
+                *n = old.interpolate(*n, self.blend);
             }
         }
         // Face selection is independent of body action and never resets its clock.
@@ -600,23 +604,11 @@ impl Island {
         for (i, dst) in self.render_locals.iter_mut().enumerate() {
             let a = self.previous_locals[i];
             let b = self.locals[i];
-            *dst = if alpha == 1. {
-                b
-            } else {
-                NodeTrs {
-                    translation: a.translation.lerp(b.translation, alpha),
-                    rotation: a.rotation.slerp(b.rotation, alpha),
-                    // Expression layers switch visibility; interpolating their
-                    // scales would show two faces during a blink or selection.
-                    scale: if self.actor.names[i].starts_with("face.")
-                        || self.actor.names[i] == "blink"
-                    {
-                        b.scale
-                    } else {
-                        a.scale.lerp(b.scale, alpha)
-                    },
-                }
-            };
+            *dst = a.interpolate(b, alpha);
+            // Visibility stays discrete when the rendered body pose interpolates.
+            if self.actor.names[i].starts_with("face.") || self.actor.names[i] == "blink" {
+                dst.scale = b.scale;
+            }
         }
         self.actor
             .skeleton
@@ -656,8 +648,11 @@ mod tests {
             let mut s = Island::new().replica(x, z, 0.27);
             s.character.clear(); // Ignore the constructor's initial portable preview.
             let mesh = s.actor.rigid_mesh().unwrap();
-            assert_eq!(core::mem::size_of::<pocket3d_anim::mesh::RigidVertex>(), 40);
-            assert_eq!(core::mem::size_of::<pocket3d_anim::mesh::RigidRange>(), 16);
+            assert_eq!(
+                core::mem::size_of::<pocket3d_mesh::rigid::RigidVertex>(),
+                40
+            );
+            assert_eq!(core::mem::size_of::<pocket3d_mesh::rigid::RigidRange>(), 16);
             assert_eq!(core::mem::size_of::<SkinMatrix>(), 48);
             let mut scratch = vec![];
             let mut expected = vec![];
@@ -703,8 +698,8 @@ mod tests {
                         let position = Vec3::new(row[0].dot(p), row[1].dot(p), row[2].dot(p));
                         let normal = Vec3::new(row[0].dot(n), row[1].dot(n), row[2].dot(n))
                             .normalize_or_zero();
-                        let light = 0.69
-                            + 0.31 * normal.dot(Vec3::new(-0.42, 0.82, 0.38).normalize()).max(0.);
+                        let sun = island_light();
+                        let light = sun.ambient + sun.diffuse * normal.dot(sun.direction).max(0.);
                         let color = Vec3::from_array(v.color) * libm::sqrtf(light);
                         assert!(
                             position.distance(Vec3::from_array(expected[offset].position))

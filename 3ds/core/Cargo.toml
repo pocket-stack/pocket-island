@@ -8,7 +8,7 @@ crate-type = ["staticlib"]
 [workspace]
 [dependencies]
 pocket-island = { path = "../.." }
-pocket3d-anim = { path = "../../vendor/pocketjs/engine/pocket3d/crates/pocket3d-anim" }
+pocket3d-mesh = { path = "../../vendor/pocketjs/engine/pocket3d/crates/pocket3d-mesh" }
 [profile.release]
 opt-level = 3
 lto = true

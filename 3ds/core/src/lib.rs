@@ -6,7 +6,7 @@ use core::{
     ffi::c_void,
 };
 use pocket_island::{Input, Island};
-use pocket3d_anim::mesh::{RigidMesh, RigidRange, RigidVertex, SkinMatrix};
+use pocket3d_mesh::rigid::{RigidMesh, RigidRange, RigidVertex, SkinMatrix};
 unsafe extern "C" {
     fn memalign(align: usize, size: usize) -> *mut c_void;
     fn free(p: *mut c_void);
@@ -27,6 +27,26 @@ static ALLOCATOR: Allocator = Allocator;
 fn panic(_: &core::panic::PanicInfo) -> ! {
     unsafe { abort() }
 }
+#[repr(C)]
+pub struct SkinLight {
+    direction: [f32; 3],
+    ambient: f32,
+    diffuse: f32,
+}
+const _: () = assert!(core::mem::size_of::<SkinLight>() == 20);
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn island_light(out: *mut SkinLight) {
+    let (direction, ambient, diffuse) = pocket_island::light_parameters();
+    unsafe {
+        *out = SkinLight {
+            direction,
+            ambient,
+            diffuse,
+        };
+    }
+}
+
 #[repr(C)]
 pub struct Snapshot {
     pub x: f32,
