@@ -1,0 +1,13 @@
+{
+  "name": "pocket-island",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "island": "bun tools/island.ts",
+    "test": "bun tools/island.ts test",
+    "build": "bun tools/island.ts build",
+    "capture": "bun tools/island.ts capture",
+    "e2e": "bun tools/island.ts e2e",
+    "setup": "bun tools/setup.ts"
+  }
+}

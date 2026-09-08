@@ -1,0 +1,47 @@
+name: Pocket Island
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: island-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  native:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - uses: dtolnay/rust-toolchain@1.97.0
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            .
+            3ds/core
+      - name: Prepare pinned native dependencies
+        run: bun run setup
+      - name: Record engine revision
+        run: git submodule status
+      - name: App contracts and assets
+        run: bun run test
+      - name: Format and lint
+        run: |
+          cargo fmt -- --check
+          cargo clippy --locked --all-targets -- -D warnings
+      - name: Build standalone native app
+        run: bun island build
+      - uses: actions/upload-artifact@v7
+        with:
+          name: pocket-island-3ds
+          path: dist/island/release/pocket-island.3dsx
+          if-no-files-found: error

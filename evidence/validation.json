@@ -1,0 +1,152 @@
+{
+  "renderer": "0",
+  "frames": [
+    {
+      "frame": 1,
+      "tick": 1,
+      "x": 0,
+      "z": 1.6,
+      "action": 0,
+      "expression": 0,
+      "messages": 0,
+      "vertices": 16008,
+      "perf_panel": 0
+    },
+    {
+      "frame": 31,
+      "tick": 31,
+      "x": 0.7733,
+      "z": 1.6,
+      "action": 1,
+      "expression": 0,
+      "messages": 0,
+      "vertices": 16008,
+      "perf_panel": 0
+    },
+    {
+      "frame": 61,
+      "tick": 61,
+      "x": 0.0367,
+      "z": 1.6,
+      "action": 2,
+      "expression": 0,
+      "messages": 0,
+      "vertices": 16008,
+      "perf_panel": 0
+    },
+    {
+      "frame": 91,
+      "tick": 91,
+      "x": -0.7583,
+      "z": 1.6,
+      "action": 6,
+      "expression": 0,
+      "messages": 0,
+      "vertices": 16008,
+      "perf_panel": 0
+    },
+    {
+      "frame": 121,
+      "tick": 121,
+      "x": -0.7583,
+      "z": 1.6,
+      "action": 6,
+      "expression": 1,
+      "messages": 1,
+      "vertices": 15336,
+      "perf_panel": 0
+    },
+    {
+      "frame": 151,
+      "tick": 151,
+      "x": -0.7583,
+      "z": 1.6,
+      "action": 3,
+      "expression": 1,
+      "messages": 1,
+      "vertices": 15336,
+      "perf_panel": 0
+    },
+    {
+      "frame": 181,
+      "tick": 181,
+      "x": -0.7583,
+      "z": 1.6,
+      "action": 4,
+      "expression": 1,
+      "messages": 1,
+      "vertices": 15336,
+      "perf_panel": 0
+    },
+    {
+      "frame": 211,
+      "tick": 211,
+      "x": -0.7583,
+      "z": 1.6,
+      "action": 5,
+      "expression": 1,
+      "messages": 1,
+      "vertices": 15336,
+      "perf_panel": 0
+    },
+    {
+      "frame": 241,
+      "tick": 241,
+      "x": -0.7583,
+      "z": 1.6,
+      "action": 0,
+      "expression": 1,
+      "messages": 1,
+      "vertices": 15336,
+      "perf_panel": 0
+    },
+    {
+      "frame": 301,
+      "tick": 301,
+      "x": -0.7583,
+      "z": 1.6,
+      "action": 7,
+      "expression": 5,
+      "messages": 1,
+      "vertices": 16224,
+      "perf_panel": 0
+    },
+    {
+      "frame": 331,
+      "tick": 331,
+      "x": -0.7583,
+      "z": 1.6,
+      "action": 0,
+      "expression": 5,
+      "messages": 1,
+      "vertices": 16224,
+      "perf_panel": 1
+    }
+  ],
+  "validation": {
+    "portable_tests": 16,
+    "desktop_pocket3d_tests": 21,
+    "clippy": "pass",
+    "glb_clips": 18,
+    "gpu_capture": "Azahar 2125.1.2 software rasterizer, native 400x240 + 320x240",
+    "hardware": "preceding CPU build ea548e2bcae3: 2 walkers 38.35 FPS, 4 walkers 29.44 FPS; GPU build f28abb50c3c2 uploaded byte-exactly, awaiting physical app launch for sustained two-actor acceptance",
+    "network": "local only",
+    "performance_stats": "pass: native C FPS, percentile, stall, reset and bounded-history tests",
+    "performance_menu": "pass: Azahar native chord open/hold/close/release, GPU readback and SD export",
+    "runtime_wire_tests": 12,
+    "live_devlink": "pass: Azahar authenticated TCP, guest-package rejection, live JS replacement/rejection/timeout, chat and position preservation, remote input, paired GPU screenshot",
+    "live_camera": "pass: Azahar accepted camera span edit, invalid bound rejected with active script retained, original camera restored",
+    "gait": "pass: actual post-collision distance drives locomotion phase, partial stick and walk/run transitions preserve phase, blocked movement idles; authored stance foot drift/height under 1.2 cm at two speeds for Walk and Run",
+    "hardware_chat": "pass: neutral and happy expressions with local chat, seated bubble GPU readback; returned to standing",
+    "crowd": "pass: physical paired TCP, three complete timing windows per case, matching workload generations, independent walking positions and animation clocks, frozen states unchanged, paired GPU captures for 2/4/8 walkers, player position and chat restored",
+    "gpu_skin": "pass: two world configurations, 360 poses across motion/expressions/visibility match CPU geometry and lighting; GPU presentation creates no CPU vertex stream; 11 software PICA captures differ from the CPU reference by at most 1 per color channel",
+    "gpu_skin_devlink": "pass: committed release f28abb50c3c2 on Azahar OpenGL, resident GPU path identified, invalid panel rejected, independent actors and panel-on/off CLI windows, player restored"
+  },
+  "sha256": {
+    "release_3dsx": "fcffc2e3ddbccc77c4fe13684e903d5e8b0c0aa53bc136a4b6021f4de2669d5c",
+    "capture_3dsx": "1b69488db886fe57c00d4fb05e4f0ffdc9b0f7610a8ea2c7903bf027d631956a",
+    "mira_glb": "db9f29f960e00906b4f86a30a13b6bad276ac47117b302683773b3749e516d88",
+    "mira_p3m": "6a03df302eaf2bac6d63faa8b0c37e39945124104a82070ea50ad95cfbd3fa10"
+  },
+  "source_revision": "f28abb50c3c2769ef85fd39aadd57bdad5463795"
+}
