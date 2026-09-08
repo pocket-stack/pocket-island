@@ -47,6 +47,7 @@ script replacement and input tapes while the room is connected:
 ```sh
 bun island probe --host 192.168.8.102
 bun island probe --host 192.168.8.152
+bun island multiplayer-probe 192.168.8.102 192.168.8.152
 bun island push --host 192.168.8.102
 ```
 
@@ -123,7 +124,10 @@ truncation, NaNs, input floods, history exhaustion and authority time budgets.
 The paired `island.stats` reply reports `online`, `playerId`, `remoteOnline`,
 `remoteX/Z/Tick`, `inputAck`, `inputPredicted`, `inputPending`, `corrections`,
 `replayedSteps`, `networkRejected` and `predictionStalled`, alongside measured
-frame timings. Daemon stderr emits a room receipt once per second.
+frame timings. `multiplayer-probe` checks movement in both directions, then
+collects 20 timing windows per console during a repeating walking tape. Its
+report separates movement acceptance from the 59.5 FPS / 25 ms frame-time
+target and saves both devices' GPU screenshots. Daemon stderr emits a room receipt once per second.
 
 Build, FTP readback, emulator rendering, two physical device connections,
 scripted cross-device movement, hardware frame timing and human control feel

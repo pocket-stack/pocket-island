@@ -54,15 +54,31 @@ try {
   await Promise.all([move(0, 0, .4), move(1, 0, -.4)]);
   await Bun.sleep(2200); // Exclude startup and movement-command round trips.
   const windows: Array<Record<string, any>[]> = [[], []];
-  const deadline = Date.now()+45000;
-  while (windows.some(w => w.length < 20) && Date.now() < deadline) {
-    const pair = await sample();
-    for (let i=0; i<2; i++) {
-      const row = pair[i];
-      if (Number(row.samples)>0 && !windows[i].some(s => s.elapsedMs === row.elapsedMs)) windows[i].push(row);
+  let walking = true;
+  const motion = (async () => {
+    const path = [[.3, 0], [0, -.3], [-.3, 0], [0, .3]];
+    for (let leg=0; walking; leg++) {
+      const [x, z] = path[leg % path.length];
+      await Promise.all([move(0, x, z), move(1, x, z)]);
     }
-    if (windows.some(w => w.length < 20)) await Bun.sleep(500);
-  }
+  })();
+  // Observe a motion failure immediately while the sampler is awaiting a reply.
+  let motionError: unknown;
+  void motion.catch(error => { motionError = error; });
+  try {
+    await Bun.sleep(2200);
+    const deadline = Date.now()+45000;
+    while (windows.some(w => w.length < 20) && Date.now() < deadline) {
+      if (motionError) throw motionError;
+      const pair = await sample();
+      for (let i=0; i<2; i++) {
+        const row = pair[i];
+        if (Number(row.samples)>0 && [1, 2].includes(Number(row.action)) &&
+            !windows[i].some(s => s.elapsedMs === row.elapsedMs)) windows[i].push(row);
+      }
+      if (windows.some(w => w.length < 20)) await Bun.sleep(500);
+    }
+  } finally { walking = false; await motion; }
   const timing = windows.map((rows, i) => {
     if (rows.length < 20) throw new Error(`Missing timing windows for ${hosts[i]}`);
     const frames = rows.reduce((n, r) => n + r.samples, 0);
@@ -74,7 +90,8 @@ try {
     await clients[i].sendCtrl({ t: "screenshot" });
     writeFileSync(`${out}/player-${i+1}.png`, (await shot).png);
   }
-  save({ passed: true, before, moved, timing });
+  const met60FpsTarget = timing.every(t => t.minWindowFps >= 59.5 && t.maxFrameMs <= 25);
+  save({ passed: true, movementPassed: true, met60FpsTarget, workload: "two scripted walking avatars", before, moved, timing });
   console.log(JSON.stringify({ report: out, timing: timing.map(({ rows, ...rest }) => rest) }, null, 2));
 } catch (error) { save({ passed: false, error: String(error) }); throw error; }
 finally { clients.forEach(c => c.close()); }
