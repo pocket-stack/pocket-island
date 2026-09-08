@@ -53,7 +53,9 @@ The UI identifies the room and delivery as local.
 **The running native app reuses Pocket Runtime's authenticated TCP transport
 on port 8131.** It uses the console's existing `pocketjs/runtime/dev.key`.
 Pair an unpaired console once with `bun vendor/pocketjs/tools/3ds-dev.ts pair --host <ip>`
-while ftpd is open, then launch Pocket Island. After this native version is
+while ftpd is open, then launch Pocket Island. The app reads that shared CLI's
+ignored key directory and migrated app-local `.pocket/3ds/devices` keys;
+`--key <file>` selects a key explicitly. After this native version is
 installed, screenshot requests, performance reads and application JavaScript
 updates run over the development connection.
 

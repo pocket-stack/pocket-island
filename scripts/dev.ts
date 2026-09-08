@@ -8,18 +8,24 @@ const args = process.argv.slice(2);
 const command = args[0] ?? "probe";
 const option = (key: string) => args[args.indexOf(key) + 1];
 const value = (key: string, fallback: string) => args.includes(key) ? option(key) : fallback;
-const keys = `${root}/.pocket/3ds/devices`;
+// The shared pairing CLI writes under its checkout; migrated users can keep
+// their existing app-local keys. An explicit --key takes precedence.
+const keyDirectories = [`${root}/vendor/pocketjs/.pocket/3ds/devices`, `${root}/.pocket/3ds/devices`];
 const port = Number(value("--port", "8131"));
 if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("Invalid --port");
 let host = value("--host", process.env.POCKET_3DS_HOST ?? "");
 let token: Uint8Array | undefined;
 if (args.includes("--key")) token = parsePocketRuntimeToken(readFileSync(option("--key"), "utf8"));
-if (!token && host && existsSync(`${keys}/${host}-${port}.key`)) token = parsePocketRuntimeToken(readFileSync(`${keys}/${host}-${port}.key`, "utf8"));
+if (!token && host) for (const dir of keyDirectories) {
+  const path = `${dir}/${host}-${port}.key`;
+  if (existsSync(path)) { token = parsePocketRuntimeToken(readFileSync(path, "utf8")); break; }
+}
 if (!host || !token) {
   const devices = (await discoverPocketRuntimes({ port, addresses: host ? [host] : undefined })).filter(d => d.target === "p3d-island");
-  const files = existsSync(keys) ? readdirSync(keys).filter(f => f.endsWith(".key")) : [];
+  const files = keyDirectories.flatMap(dir => existsSync(dir)
+    ? readdirSync(dir).filter(f => f.endsWith(".key")).map(file => `${dir}/${file}`) : []);
   const matches = devices.flatMap(device => {
-    const candidates = token ? [token] : files.map(file => parsePocketRuntimeToken(readFileSync(`${keys}/${file}`, "utf8")));
+    const candidates = token ? [token] : files.map(file => parsePocketRuntimeToken(readFileSync(file, "utf8")));
     const key = candidates.find(key => pocketRuntimeDeviceId(key) === device.deviceId);
     return key ? [{ device, key }] : [];
   });

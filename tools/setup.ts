@@ -8,4 +8,4 @@ for (const command of [
   const child = Bun.spawn(command, { cwd: root, stdout: "inherit", stderr: "inherit" });
   if (await child.exited) throw new Error(`Setup failed: ${command[0]}`);
 }
-console.log("Pinned engine and Rust/QuickJS sources are ready. Start Docker, then bun build.");
+console.log("Pinned engine and Rust/QuickJS sources are ready. Start Docker, then bun island build.");
