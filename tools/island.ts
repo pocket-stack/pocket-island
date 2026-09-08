@@ -27,6 +27,7 @@ if (command === "assets") {
   }
   await run(["bun", `${app}/scripts/validate_assets.ts`]);
   await run(["cargo", "test", "--locked", "--manifest-path", "Cargo.toml", "-p", "pocket-island"]);
+  await run(["python3", `${app}/scripts/companion-smoke.py`]);
 } else if (["build", "capture", "run"].includes(command)) {
   const flavor = command === "capture" ? "capture" : "release";
   const rustc = Bun.spawnSync(["rustup", "which", "--toolchain", "nightly-2026-07-02", "rustc"]).stdout.toString().trim();

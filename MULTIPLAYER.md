@@ -33,7 +33,8 @@ ROM. It preserves existing keys, creates missing application and development
 keys, and stores their local copies with mode 0600 under ignored `.pocket/`.
 Receipts and prior ROMs go to ignored `dist/multiplayer/`.
 
-The companion connects to each device on **8741** using the existing PocketJS
+The companion accepts an optional `ip:port` endpoint for a forwarded or test
+connection; the default port is 8741. It connects to each device on **8741** using the existing PocketJS
 offload worker transport. The application key is
 `/pocketjs/offload/edc8784e4061e8bd.key`, derived from `pocket-island` by the
 framework's app-key convention. The daemon binds its first configured device
@@ -117,8 +118,11 @@ LAN key contract; the mailbox does not encrypt traffic.
 `bun island test` covers the original asset/pose/locomotion tests and the
 network protocol through encoded packets. The two-client tape injects jitter,
 skips snapshots, applies an authoritative position correction, verifies replay
-and remote state, and reconnects with old packets still available. Other tests
-cover duplicate action input, wrong-owner/epoch packets, incompatible rules,
+and remote state, and reconnects with old packets still available. A second test runs the production
+Bun daemon and Rust authority against two TCP fixtures, verifies both
+authoritative and remote positions, then reconnects one fixture and checks
+that its position survives. These are loopback peers, not physical devices.
+Other tests cover duplicate action input, wrong-owner/epoch packets, incompatible rules,
 truncation, NaNs, input floods, history exhaustion and authority time budgets.
 
 The paired `island.stats` reply reports `online`, `playerId`, `remoteOnline`,
