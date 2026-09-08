@@ -1,0 +1,15 @@
+[package]
+name = "pocket-island"
+description = "Pocket3D social island and specialized Nintendo 3DS runtime"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/pocket-stack/pocket-island"
+publish = false
+
+[dependencies]
+pocket3d-anim = { path = "vendor/pocketjs/engine/pocket3d/crates/pocket3d-anim" }
+libm = "0.2"
+
+[profile.dev]
+opt-level = 1

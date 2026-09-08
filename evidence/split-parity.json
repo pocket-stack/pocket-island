@@ -1,0 +1,151 @@
+{
+  "source_repository": "https://github.com/pocket-stack/pocketjs",
+  "source_revision": "3f574060e23bcce08a1512d120e871020b3b5566",
+  "environment": "Azahar software PICA",
+  "hardware_timing": false,
+  "assets": [
+    {
+      "path": "assets/layout.rs",
+      "sha256": "0830d79d339d7e722f531be65bdd80dbacc8d17fdaeef9530bf7a951f57d070d",
+      "bytes": 680
+    },
+    {
+      "path": "assets/pocket-island.blend",
+      "sha256": "6d970bf310f75fcf7449e43257777779e5b891cf1ce4f8b5332e76204a75dee7",
+      "bytes": 502749
+    },
+    {
+      "path": "assets/mira.glb",
+      "sha256": "6198789c62383b5a2789b4be95260df61bbc3756486f6628568fb42ff902c779",
+      "bytes": 494012
+    },
+    {
+      "path": "assets/island.p3m",
+      "sha256": "564bd9e5a3218210ce390af90d399b9cf45008f132a3eaed874c22c754bc3c03",
+      "bytes": 287506
+    },
+    {
+      "path": "assets/manifest.json",
+      "sha256": "b38e5c35b139242e9afe9b064c0220b8ce26481a710488528ab7fe968f982e25",
+      "bytes": 1220
+    },
+    {
+      "path": "assets/island.glb",
+      "sha256": "9e0120563161e2bd4d8efe9a1c1e9aeb267a7b0856b8241420ab32c5edcdddd5",
+      "bytes": 476936
+    },
+    {
+      "path": "assets/mira.p3m",
+      "sha256": "fcc8083854727731599cae4494834dffffe59c8cba0fda30aac8d0993885bb07",
+      "bytes": 558619
+    }
+  ],
+  "frames": [
+    {
+      "path": "bottom-001.bgr",
+      "max_channel_delta": 0,
+      "changed_channels": 0
+    },
+    {
+      "path": "bottom-031.bgr",
+      "max_channel_delta": 0,
+      "changed_channels": 0
+    },
+    {
+      "path": "bottom-061.bgr",
+      "max_channel_delta": 0,
+      "changed_channels": 0
+    },
+    {
+      "path": "bottom-091.bgr",
+      "max_channel_delta": 0,
+      "changed_channels": 0
+    },
+    {
+      "path": "bottom-121.bgr",
+      "max_channel_delta": 0,
+      "changed_channels": 0
+    },
+    {
+      "path": "bottom-151.bgr",
+      "max_channel_delta": 0,
+      "changed_channels": 0
+    },
+    {
+      "path": "bottom-181.bgr",
+      "max_channel_delta": 0,
+      "changed_channels": 0
+    },
+    {
+      "path": "bottom-211.bgr",
+      "max_channel_delta": 0,
+      "changed_channels": 0
+    },
+    {
+      "path": "bottom-241.bgr",
+      "max_channel_delta": 0,
+      "changed_channels": 0
+    },
+    {
+      "path": "bottom-301.bgr",
+      "max_channel_delta": 0,
+      "changed_channels": 0
+    },
+    {
+      "path": "top-001.bgr",
+      "max_channel_delta": 1,
+      "changed_channels": 3
+    },
+    {
+      "path": "top-031.bgr",
+      "max_channel_delta": 1,
+      "changed_channels": 1
+    },
+    {
+      "path": "top-061.bgr",
+      "max_channel_delta": 1,
+      "changed_channels": 4
+    },
+    {
+      "path": "top-091.bgr",
+      "max_channel_delta": 1,
+      "changed_channels": 2
+    },
+    {
+      "path": "top-121.bgr",
+      "max_channel_delta": 1,
+      "changed_channels": 3
+    },
+    {
+      "path": "top-151.bgr",
+      "max_channel_delta": 1,
+      "changed_channels": 3
+    },
+    {
+      "path": "top-181.bgr",
+      "max_channel_delta": 1,
+      "changed_channels": 2
+    },
+    {
+      "path": "top-211.bgr",
+      "max_channel_delta": 1,
+      "changed_channels": 2
+    },
+    {
+      "path": "top-241.bgr",
+      "max_channel_delta": 1,
+      "changed_channels": 5
+    },
+    {
+      "path": "top-301.bgr",
+      "max_channel_delta": 1,
+      "changed_channels": 4
+    },
+    {
+      "path": "top-331.bgr",
+      "max_channel_delta": 1,
+      "changed_channels": 5
+    }
+  ],
+  "excluded": "bottom-331.bgr contains build provenance text"
+}
