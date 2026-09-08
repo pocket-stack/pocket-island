@@ -41,10 +41,14 @@ if (command === "assets") {
   if (!existsSync(rom)) throw new Error("Build did not produce the 3DSX");
   console.log(`Pocket Island: ${rom}`);
   if (command === "run") await run(["open", "-a", process.env.AZAHAR ?? "/Applications/Azahar.app", "--args", rom]);
+} else if (["companion", "multiplayer-probe"].includes(command)) {
+  await run(["bun", `${app}/scripts/${command}.ts`, ...process.argv.slice(3)]);
+} else if (command === "upload") {
+  await run(["python3", `${app}/scripts/upload.py`, ...process.argv.slice(3)]);
 } else if (command === "e2e") {
   await run(["bun", `${app}/scripts/azahar.ts`]);
 } else if (["probe", "push", "dev", "bench", "crowd"].includes(command)) {
   await run(["bun", `${app}/scripts/dev.ts`, command, ...process.argv.slice(3)]);
 } else {
-  throw new Error("Usage: bun tools/island.ts [assets|test|build|capture|run|e2e|probe|push|dev|bench|crowd]");
+  throw new Error("Usage: bun tools/island.ts [assets|test|build|capture|run|e2e|probe|push|dev|bench|crowd|companion|upload|multiplayer-probe]");
 }

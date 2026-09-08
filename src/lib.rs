@@ -15,6 +15,10 @@ use pocket3d_mesh::{
     rigid::SkinMatrix,
 };
 
+pub mod motion;
+pub mod net;
+pub use motion::{Motion, MotionConfig};
+
 mod layout {
     include!("../assets/layout.rs");
 }
@@ -69,7 +73,7 @@ impl Action {
         matches!(self, Self::Idle | Self::Walk | Self::Run | Self::SitIdle)
     }
 }
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Input {
     pub x: f32,
     pub z: f32,
@@ -238,15 +242,12 @@ impl Chat {
 }
 
 pub struct Island {
-    pub position: Vec3,
-    pub yaw: f32,
+    pub motion: Motion,
+    pub config: MotionConfig,
     pub camera: Vec3,
-    pub action: Action,
-    pub expression: usize,
-    pub action_time: f32,
-    pub tick: u64,
     pub chat: Chat,
-    pub on_bench: bool,
+    /// Local presentation clock; authoritative simulation restoration cannot rewind it.
+    pub ui_tick: u64,
     pub actor: Rc<MeshAsset>,
     pub terrain: Vec<ColorVertex>,
     pub character: Vec<ColorVertex>,
@@ -298,15 +299,11 @@ impl Island {
     fn with_actor(actor: Rc<MeshAsset>, terrain: Vec<ColorVertex>) -> Self {
         let locals = actor.skeleton.rest.clone();
         let mut s = Self {
-            position: Vec3::new(0., 0.11, 1.6),
-            yaw: 0.,
+            motion: Motion::default(),
+            config: MotionConfig::from_asset(&actor),
             camera: Vec3::new(0., 0., 1.6),
-            action: Action::Idle,
-            expression: 0,
-            action_time: 0.,
-            tick: 0,
             chat: Chat::new(1),
-            on_bench: false,
+            ui_tick: 0,
             actor,
             terrain,
             character: vec![],
@@ -333,70 +330,34 @@ impl Island {
     pub fn replica(&self, x: f32, z: f32, phase: f32) -> Self {
         let position = Vec3::new(x, Self::ground_height(x, z), z);
         let mut s = Self::with_actor(Rc::clone(&self.actor), vec![]);
-        s.position = position;
+        s.motion.position = position;
         s.previous_position = position;
         s.change(Action::Walk);
-        s.action_time = phase;
+        s.motion.action_time = phase;
         s.blend = 1.;
         s.animate();
         s.previous_locals.clone_from(&s.locals);
         s
     }
     fn clip_name(&self) -> &'static str {
-        if self.on_bench {
-            match self.action {
-                Action::SitDown => "BenchSitDown",
-                Action::SitIdle => "BenchSitIdle",
-                Action::StandUp => "BenchStandUp",
-                _ => self.action.name(),
-            }
-        } else {
-            self.action.name()
-        }
+        self.motion.clip_name()
     }
     pub fn set_expression(&mut self, e: usize) {
-        self.expression = e % EXPRESSIONS.len();
+        self.motion.expression = e % EXPRESSIONS.len();
     }
     pub fn send(&mut self, text: &str) -> Result<u64, MessageError> {
-        self.chat.send(text, self.tick, false)
+        self.chat.send(text, self.ui_tick, false)
     }
-    fn change(&mut self, a: Action) {
-        if self.action == a {
-            return;
-        }
-        let phase = if matches!(self.action, Action::Walk | Action::Run)
-            && matches!(a, Action::Walk | Action::Run)
-        {
-            self.action_time / self.actor.clips[self.actor.clip(self.clip_name()).unwrap()].duration
-        } else {
-            0.
-        };
-        self.old_locals.clone_from(&self.locals);
-        self.action = a;
-        self.action_time =
-            phase * self.actor.clips[self.actor.clip(self.clip_name()).unwrap()].duration;
-        self.blend = 0.;
+    fn change(&mut self, action: Action) {
+        let mut next = self.motion;
+        next.change(action, &self.config);
+        self.accept_motion(next);
     }
     pub fn walkable(x: f32, z: f32) -> bool {
-        if !x.is_finite() || !z.is_finite() {
-            return false;
-        }
-        let on_island = x * x / (10.1 * 10.1) + z * z / (8.1 * 8.1) < 1.;
-        let on_dock = (-0.52..=0.72).contains(&x) && (6.4..=9.1).contains(&z);
-        (on_island || on_dock)
-            && !layout::COLLIDERS.iter().any(|&(cx, cz, r)| {
-                let d = (x - cx) * (x - cx) + (z - cz) * (z - cz);
-                d < (r + 0.23) * (r + 0.23)
-            })
+        Motion::walkable(x, z)
     }
     pub fn ground_height(x: f32, z: f32) -> f32 {
-        if (-0.70..=0.90).contains(&x) && (6.69..=9.60).contains(&z) {
-            0.17
-        } else if x * x / (9.15 * 9.15) + z * z / (7.15 * 7.15) < 1.0 {
-            0.11
-        } else {
-            -0.01
-        }
+        Motion::ground_height(x, z)
     }
     pub fn step(&mut self, input: Input) {
         self.advance(input);
@@ -405,119 +366,26 @@ impl Island {
     /// Advance simulation and the small skeleton pose without skinning a mesh.
     /// A host catching up several ticks presents only the final pose.
     pub fn advance(&mut self, input: Input) {
+        let mut next = self.motion;
+        next.advance(input, &self.config);
+        self.accept_motion(next);
+    }
+    /// Commit one displayed state after prediction/reconciliation. Replaying
+    /// Motion never touches pose buffers, camera smoothing or conversation.
+    pub fn accept_motion(&mut self, next: Motion) {
+        self.ui_tick += 1;
         self.previous_locals.clone_from(&self.locals);
-        self.previous_position = self.position;
-        self.previous_yaw = self.yaw;
+        self.previous_position = self.motion.position;
+        self.previous_yaw = self.motion.yaw;
         self.previous_camera = self.camera;
-        self.tick += 1;
-        if !matches!(self.action, Action::Walk | Action::Run) {
-            self.action_time += STEP;
+        if self.motion.action != next.action || self.motion.on_bench != next.on_bench {
+            self.old_locals.clone_from(&self.locals);
+            self.blend = 0.;
         }
-        let mut dir = Vec3::new(
-            if input.x.is_finite() {
-                input.x.clamp(-1., 1.)
-            } else {
-                0.
-            },
-            0.,
-            if input.z.is_finite() {
-                input.z.clamp(-1., 1.)
-            } else {
-                0.
-            },
-        );
-        if dir.length() < 0.16 {
-            dir = Vec3::ZERO
-        } else {
-            dir = dir.clamp_length_max(1.)
-        }
-        let moving = dir.length_squared() > 0.;
-        if input.sit && !matches!(self.action, Action::SitDown | Action::StandUp) {
-            if self.action == Action::SitIdle {
-                self.change(Action::StandUp)
-            } else {
-                let (x, z, _) = layout::BENCH;
-                if (self.position - Vec3::new(x, 0.09, z)).length() < 1.65 {
-                    self.position.x = x;
-                    self.position.z = z - 0.02;
-                    self.on_bench = true;
-                    self.yaw = 0.;
-                }
-                self.yaw = 0.0;
-                self.change(Action::SitDown)
-            }
-        }
-        let duration = self.actor.clips[self.actor.clip(self.clip_name()).unwrap()].duration;
-        if self.action_time >= duration {
-            match self.action {
-                Action::SitDown => self.change(Action::SitIdle),
-                Action::StandUp => {
-                    self.on_bench = false;
-                    self.position.z += if self.near_bench() { 1.35 } else { 0. };
-                    self.change(Action::Idle)
-                }
-                Action::Wave | Action::Cheer => self.change(Action::Idle),
-                _ => {}
-            }
-        }
-        if moving && self.action == Action::SitIdle {
-            self.change(Action::StandUp)
-        }
-        if !matches!(
-            self.action,
-            Action::SitDown | Action::SitIdle | Action::StandUp
-        ) {
-            if moving {
-                let step = dir * (if input.run { RUN_SPEED } else { WALK_SPEED }) * STEP;
-                let previous = self.position;
-                let next = self.position + step;
-                if Self::walkable(next.x, self.position.z) {
-                    self.position.x = next.x;
-                }
-                if Self::walkable(self.position.x, next.z) {
-                    self.position.z = next.z;
-                }
-                let travelled = self.position - previous;
-                let distance = travelled.length();
-                if distance > 1e-6 {
-                    self.change(if input.run { Action::Run } else { Action::Walk });
-                    let stride = if input.run {
-                        layout::RUN_STRIDE
-                    } else {
-                        layout::WALK_STRIDE
-                    };
-                    let duration =
-                        self.actor.clips[self.actor.clip(self.clip_name()).unwrap()].duration;
-                    self.action_time += distance / stride * duration;
-                    let target = libm::atan2f(travelled.x, travelled.z);
-                    let delta =
-                        libm::atan2f(libm::sinf(target - self.yaw), libm::cosf(target - self.yaw));
-                    self.yaw += delta * 0.24;
-                } else if matches!(self.action, Action::Walk | Action::Run) {
-                    self.change(Action::Idle);
-                }
-            } else if matches!(self.action, Action::Walk | Action::Run) {
-                self.change(Action::Idle)
-            }
-            if input.wave {
-                self.yaw = 0.0;
-                self.change(Action::Wave)
-            }
-            if input.cheer {
-                self.yaw = 0.0;
-                self.change(Action::Cheer)
-            }
-        }
-        self.position.y = Self::ground_height(self.position.x, self.position.z);
-        // Follow to the shore as well: a close camera cannot retain the
-        // wide-view clamps without letting the avatar walk off the screen.
-        let target = Vec3::new(self.position.x, 0., self.position.z);
+        self.motion = next;
+        let target = Vec3::new(self.motion.position.x, 0., self.motion.position.z);
         self.camera = self.camera.lerp(target, 0.075);
         self.sample_pose();
-    }
-    fn near_bench(&self) -> bool {
-        let (x, z, _) = layout::BENCH;
-        (self.position.x - x).abs() < 0.1 && (self.position.z - z).abs() < 0.15
     }
     pub fn animate(&mut self) {
         self.sample_pose();
@@ -527,8 +395,8 @@ impl Island {
         let clip = &self.actor.clips[self.actor.clip(self.clip_name()).unwrap()];
         self.actor.skeleton.sample_locals(
             Some(clip),
-            self.action_time,
-            self.action.looping(),
+            self.motion.action_time,
+            self.motion.action.looping(),
             &mut self.locals,
         );
         self.blend = (self.blend + STEP / 0.16).min(1.);
@@ -539,11 +407,11 @@ impl Island {
             }
         }
         // Face selection is independent of body action and never resets its clock.
-        let blink = self.tick % 123 >= 119 && ![1, 6].contains(&self.expression);
+        let blink = self.motion.tick % 123 >= 119 && ![1, 6].contains(&self.motion.expression);
         for (i, name) in self.actor.names.iter().enumerate() {
             if let Some(exp) = name.strip_prefix("face.") {
                 self.locals[i].scale =
-                    Vec3::splat(if exp == EXPRESSIONS[self.expression] && !blink {
+                    Vec3::splat(if exp == EXPRESSIONS[self.motion.expression] && !blink {
                         1.
                     } else {
                         0.0001
@@ -613,9 +481,9 @@ impl Island {
         self.actor
             .skeleton
             .globals_from_locals(&self.render_locals, &mut self.globals);
-        let position = self.previous_position.lerp(self.position, alpha);
-        let rotation =
-            Quat::from_rotation_y(self.previous_yaw).slerp(Quat::from_rotation_y(self.yaw), alpha);
+        let position = self.previous_position.lerp(self.motion.position, alpha);
+        let rotation = Quat::from_rotation_y(self.previous_yaw)
+            .slerp(Quat::from_rotation_y(self.motion.yaw), alpha);
         self.render_model = Mat4::from_rotation_translation(rotation, position);
         self.render_camera = self.previous_camera.lerp(self.camera, alpha);
         self.actor
@@ -725,7 +593,7 @@ mod tests {
     fn replicas_share_assets_and_keep_independent_motion_and_chat() {
         let mut original = Island::new();
         original.send("local state stays here").unwrap();
-        let position = original.position;
+        let position = original.motion.position;
         let mut a = original.replica(-0.7, 1.6, 0.);
         let mut b = original.replica(0.7, 1.6, 0.2);
         assert!(Rc::ptr_eq(&original.actor, &a.actor));
@@ -744,10 +612,10 @@ mod tests {
             a.present(0.5);
             b.present(0.5);
         }
-        assert_eq!(a.action, Action::Walk);
-        assert_eq!(b.action, Action::Walk);
-        assert_ne!(a.position, b.position);
-        assert_ne!(a.action_time, b.action_time);
+        assert_eq!(a.motion.action, Action::Walk);
+        assert_eq!(b.motion.action, Action::Walk);
+        assert_ne!(a.motion.position, b.motion.position);
+        assert_ne!(a.motion.action_time, b.motion.action_time);
         assert!(
             b.character
                 .iter()
@@ -755,19 +623,19 @@ mod tests {
                 .any(|(a, b)| a.position != b.position)
         );
         frozen.clone_from(&b.character);
-        let tick = b.tick;
+        let tick = b.motion.tick;
         for _ in 0..10 {
             a.step(Input::default());
         }
-        assert_eq!(b.tick, tick);
+        assert_eq!(b.motion.tick, tick);
         assert!(
             b.character
                 .iter()
                 .zip(&frozen)
                 .all(|(a, b)| a.position == b.position && a.color == b.color)
         );
-        assert_eq!(original.tick, 0);
-        assert_eq!(original.position, position);
+        assert_eq!(original.motion.tick, 0);
+        assert_eq!(original.motion.position, position);
         assert_eq!(original.chat.history.len(), 1);
     }
     #[test]
@@ -775,8 +643,8 @@ mod tests {
         for run in [false, true] {
             for amount in [0.25, 0.55, 1.] {
                 let mut s = Island::new();
-                s.position = Vec3::new(0., 0.11, 2.);
-                let start = s.position;
+                s.motion.position = Vec3::new(0., 0.11, 2.);
+                let start = s.motion.position;
                 for _ in 0..12 {
                     s.advance(Input {
                         z: amount,
@@ -791,11 +659,13 @@ mod tests {
                     layout::WALK_STRIDE
                 };
                 assert!(
-                    (s.action_time / duration - (s.position - start).length() / stride).abs()
+                    (s.motion.action_time / duration
+                        - (s.motion.position - start).length() / stride)
+                        .abs()
                         < 1e-5
                 );
-                let phase = s.action_time / duration;
-                let previous = s.position;
+                let phase = s.motion.action_time / duration;
+                let previous = s.motion.position;
                 s.advance(Input {
                     z: amount,
                     run: !run,
@@ -808,14 +678,16 @@ mod tests {
                     layout::RUN_STRIDE
                 };
                 assert!(
-                    (s.action_time / duration - phase - (s.position - previous).length() / stride)
+                    (s.motion.action_time / duration
+                        - phase
+                        - (s.motion.position - previous).length() / stride)
                         .abs()
                         < 1e-5
                 );
             }
         }
         let mut s = Island::new();
-        s.position = Vec3::new(0., 0.17, 9.09);
+        s.motion.position = Vec3::new(0., 0.17, 9.09);
         s.change(Action::Run);
         s.advance(Input {
             z: 1.,
@@ -823,11 +695,11 @@ mod tests {
             ..Input::default()
         });
         assert_eq!(
-            s.action,
+            s.motion.action,
             Action::Idle,
             "a blocked avatar must not run in place"
         );
-        assert_eq!(s.position.z, 9.09);
+        assert_eq!(s.motion.position.z, 9.09);
     }
 
     #[test]
@@ -849,8 +721,8 @@ mod tests {
                         // the incoming swing with the first planted pose.
                         let phase = offset + 0.07 + (stance - 0.14) * i as f32 / 23.;
                         let time = phase * stride / speed;
-                        s.position = Vec3::new(0., 0.11, 2. + time * speed);
-                        s.action_time = time * speed / stride * duration;
+                        s.motion.position = Vec3::new(0., 0.11, 2. + time * speed);
+                        s.motion.action_time = time * speed / stride * duration;
                         s.animate();
                         let p = s
                             .render_model
@@ -893,8 +765,8 @@ mod tests {
             },
         ] {
             s.advance(input);
-            let tick = s.tick;
-            let position = s.position;
+            let tick = s.motion.tick;
+            let position = s.motion.position;
             let locals = s.locals.clone();
             s.present(0.);
             let start = s.render_model.w_axis.truncate();
@@ -904,8 +776,8 @@ mod tests {
             s.present(0.5);
             assert!((s.render_model.w_axis.truncate() - start.lerp(end, 0.5)).length() < 1e-5);
             assert!((s.render_camera - s.previous_camera.lerp(s.camera, 0.5)).length() < 1e-5);
-            assert_eq!(s.tick, tick);
-            assert_eq!(s.position, position);
+            assert_eq!(s.motion.tick, tick);
+            assert_eq!(s.motion.position, position);
             for (a, b) in s.locals.iter().zip(&locals) {
                 assert_eq!(a.translation, b.translation);
                 assert_eq!(a.rotation, b.rotation);
@@ -944,8 +816,8 @@ mod tests {
                 deferred.advance(input);
             }
             deferred.rebuild_character();
-            assert_eq!(immediate.action, deferred.action);
-            assert_eq!(immediate.position, deferred.position);
+            assert_eq!(immediate.motion.action, deferred.motion.action);
+            assert_eq!(immediate.motion.position, deferred.motion.position);
             assert_eq!(immediate.bubble_anchor(), deferred.bubble_anchor());
             assert_eq!(immediate.character.len(), deferred.character.len());
             for (a, b) in immediate.character.iter().zip(&deferred.character) {
@@ -971,7 +843,7 @@ mod tests {
         }
         let idle = s.character.clone();
         s.change(Action::Walk);
-        s.action_time = 0.20;
+        s.motion.action_time = 0.20;
         s.blend = 1.;
         s.animate();
         let moved = idle
@@ -997,7 +869,7 @@ mod tests {
         let rest_hand = s.globals[hand].w_axis.y;
         let rest_hips = s.globals[hips].w_axis.y;
         s.change(Action::Wave);
-        s.action_time = 0.7;
+        s.motion.action_time = 0.7;
         s.blend = 1.0;
         s.animate();
         assert!(
@@ -1007,7 +879,7 @@ mod tests {
             rest_hand
         );
         s.change(Action::SitIdle);
-        s.action_time = 1.0;
+        s.motion.action_time = 1.0;
         s.blend = 1.0;
         s.animate();
         assert!(s.globals[hips].w_axis.y < rest_hips - 0.25);
@@ -1015,7 +887,7 @@ mod tests {
     #[test]
     fn movement_is_bounded_and_frame_independent() {
         let mut s = Island::new();
-        let start = s.position;
+        let start = s.motion.position;
         for _ in 0..30 {
             s.step(Input {
                 x: 1.,
@@ -1023,7 +895,7 @@ mod tests {
                 ..Input::default()
             });
         }
-        assert!((s.position.x - start.x - RUN_SPEED).abs() < 0.001);
+        assert!((s.motion.position.x - start.x - RUN_SPEED).abs() < 0.001);
         for _ in 0..600 {
             s.step(Input {
                 x: 1.,
@@ -1032,7 +904,7 @@ mod tests {
                 ..Input::default()
             });
         }
-        assert!(Island::walkable(s.position.x, s.position.z));
+        assert!(Island::walkable(s.motion.position.x, s.motion.position.z));
         assert!(!Island::walkable(f32::NAN, 0.));
         assert!(!Island::walkable(0., 20.));
         for &(x, z, _) in layout::COLLIDERS {
@@ -1049,41 +921,41 @@ mod tests {
         for _ in 0..24 {
             s.step(Input::default());
         }
-        assert_eq!(s.action, Action::SitIdle);
+        assert_eq!(s.motion.action, Action::SitIdle);
         s.step(Input {
             x: 1.,
             ..Input::default()
         });
-        assert_eq!(s.action, Action::StandUp);
+        assert_eq!(s.motion.action, Action::StandUp);
         for _ in 0..20 {
             s.step(Input {
                 x: 1.,
                 ..Input::default()
             });
         }
-        assert_eq!(s.action, Action::Walk);
-        let t = s.action_time;
+        assert_eq!(s.motion.action, Action::Walk);
+        let t = s.motion.action_time;
         s.set_expression(3);
         s.step(Input {
             x: 1.,
             ..Input::default()
         });
-        assert!(s.action_time > t);
+        assert!(s.motion.action_time > t);
     }
     #[test]
     fn bench_clip_and_exit_obey_scene_geometry() {
         let mut s = Island::new();
-        s.position = Vec3::new(3.05, 0.11, 0.80);
+        s.motion.position = Vec3::new(3.05, 0.11, 0.80);
         s.step(Input {
             sit: true,
             ..Input::default()
         });
-        assert!(s.on_bench);
+        assert!(s.motion.on_bench);
         assert_eq!(s.clip_name(), "BenchSitDown");
         for _ in 0..30 {
             s.step(Input::default());
         }
-        assert_eq!(s.action, Action::SitIdle);
+        assert_eq!(s.motion.action, Action::SitIdle);
         s.step(Input {
             sit: true,
             ..Input::default()
@@ -1091,8 +963,8 @@ mod tests {
         for _ in 0..24 {
             s.step(Input::default());
         }
-        assert!(!s.on_bench);
-        assert!(Island::walkable(s.position.x, s.position.z));
+        assert!(!s.motion.on_bench);
+        assert!(Island::walkable(s.motion.position.x, s.motion.position.z));
         let feet = s
             .character
             .iter()
@@ -1110,7 +982,7 @@ mod tests {
         s.change(Action::Walk);
         s.blend = 1.0;
         for sample in 0..24 {
-            s.action_time = 0.84 * sample as f32 / 24.0;
+            s.motion.action_time = 0.84 * sample as f32 / 24.0;
             s.animate();
             let sole = s
                 .character
@@ -1119,9 +991,9 @@ mod tests {
                 .map(|v| v.position[1])
                 .fold(f32::INFINITY, f32::min);
             assert!(
-                (sole - s.position.y).abs() < 0.035,
+                (sole - s.motion.position.y).abs() < 0.035,
                 "walk frame {sample}: sole {sole}, floor {}",
-                s.position.y
+                s.motion.position.y
             );
         }
     }
@@ -1130,7 +1002,7 @@ mod tests {
         let mut s = Island::new();
         for action in [Action::Idle, Action::Wave, Action::SitIdle, Action::Cheer] {
             s.change(action);
-            s.action_time = 0.7;
+            s.motion.action_time = 0.7;
             s.blend = 1.0;
             s.animate();
             let max = s
@@ -1174,6 +1046,18 @@ mod tests {
             c.receive(2, i, "bounded", i * 30).unwrap();
         }
         assert_eq!(c.history.len(), HISTORY_LIMIT);
+    }
+    #[test]
+    fn simulation_restore_preserves_local_effects_and_their_clock() {
+        let mut s = Island::new();
+        s.send("one local effect").unwrap();
+        for _ in 0..220 {
+            s.accept_motion(Motion::default()); // authority checkpoint can be older
+        }
+        assert_eq!(s.motion.tick, 0);
+        assert_eq!(s.ui_tick, 220);
+        assert_eq!(s.chat.history.len(), 1);
+        assert!(s.chat.bubble(s.chat.local_peer, s.ui_tick).is_none());
     }
     #[test]
     fn malformed_asset_is_rejected() {

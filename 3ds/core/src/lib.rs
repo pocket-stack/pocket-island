@@ -135,18 +135,19 @@ pub unsafe extern "C" fn island_free(s: *mut Island) {
         drop(unsafe { Box::from_raw(s) })
     }
 }
+fn host_input(x: f32, z: f32, flags: u32) -> Input {
+    Input {
+        x,
+        z,
+        run: flags & 1 != 0,
+        wave: flags & 2 != 0,
+        sit: flags & 4 != 0,
+        cheer: flags & 8 != 0,
+    }
+}
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn island_step(s: *mut Island, x: f32, z: f32, flags: u32) {
-    unsafe {
-        (*s).advance(Input {
-            x,
-            z,
-            run: flags & 1 != 0,
-            wave: flags & 2 != 0,
-            sit: flags & 4 != 0,
-            cheer: flags & 8 != 0,
-        })
-    }
+    unsafe { &mut *s }.advance(host_input(x, z, flags));
 }
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn island_expression(s: *mut Island, e: u32) {
@@ -174,19 +175,19 @@ pub unsafe extern "C" fn island_snapshot(s: *const Island, out: *mut Snapshot) {
     let a = s.bubble_anchor();
     unsafe {
         *out = Snapshot {
-            x: s.position.x,
-            y: s.position.y,
-            z: s.position.z,
+            x: s.motion.position.x,
+            y: s.motion.position.y,
+            z: s.motion.position.z,
             cam_x: s.render_camera.x,
             cam_z: s.render_camera.z,
             anchor_x: a.x,
             anchor_y: a.y,
             anchor_z: a.z,
-            action: s.action as u32,
-            expression: s.expression as u32,
-            tick: s.tick as u32,
+            action: s.motion.action as u32,
+            expression: s.motion.expression as u32,
+            tick: s.motion.tick as u32,
             messages: s.chat.history.len() as u32,
-            action_time: s.action_time,
+            action_time: s.motion.action_time,
         }
     }
 }
@@ -225,7 +226,7 @@ pub unsafe extern "C" fn island_bubble(s: *const Island, out: *mut u8, capacity:
     unsafe {
         copy_text(
             s.chat
-                .bubble(s.chat.local_peer, s.tick)
+                .bubble(s.chat.local_peer, s.ui_tick)
                 .map(|m| m.body.as_str())
                 .unwrap_or(""),
             out,
@@ -259,4 +260,133 @@ pub unsafe extern "C" fn island_message(
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn island_present(s: *mut Island, alpha: f32) {
     unsafe { (*s).present_pose(alpha) }
+}
+
+use pocket_island::net::{Client, Packet, WIRE_BYTES};
+pub struct NativeNet {
+    client: Client,
+    remote: Box<Island>,
+    pending: Option<Packet>,
+}
+#[repr(C)]
+pub struct NetworkSnapshot {
+    linked: u32,
+    player: u32,
+    remote: u32,
+    pending: u32,
+    acknowledged: u32,
+    predicted: u32,
+    corrections: u32,
+    replayed: u32,
+    rejected: u32,
+    stalled: u32,
+    remote_x: f32,
+    remote_z: f32,
+    remote_tick: u32,
+}
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn island_net_new(s: *const Island) -> *mut NativeNet {
+    let s = unsafe { &*s };
+    Box::into_raw(Box::new(NativeNet {
+        client: Client::new(s.config.clone()),
+        remote: Box::new(s.replica(0.7, 1.6, 0.)),
+        pending: None,
+    }))
+}
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn island_net_free(n: *mut NativeNet) {
+    if !n.is_null() {
+        drop(unsafe { Box::from_raw(n) });
+    }
+}
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn island_net_frame(n: *mut NativeNet, session: i32) {
+    unsafe { &mut *n }.client.frame(session);
+}
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn island_net_receive(n: *mut NativeNet, data: *const u8, length: u32) {
+    let n = unsafe { &mut *n };
+    if length as usize > WIRE_BYTES {
+        n.client.rejected += 1;
+        return;
+    }
+    let bytes = unsafe { core::slice::from_raw_parts(data, length as usize) };
+    if let Some(packet) = Packet::decode(bytes) {
+        n.client.receive(packet);
+    } else {
+        n.client.rejected += 1;
+    }
+}
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn island_net_outgoing(n: *mut NativeNet, out: *mut u8) -> u32 {
+    let n = unsafe { &mut *n };
+    n.pending = n.client.outgoing();
+    let Some(packet) = &n.pending else {
+        return 0;
+    };
+    let mut bytes = [0; WIRE_BYTES];
+    let length = packet.encode(&mut bytes);
+    unsafe {
+        core::ptr::copy_nonoverlapping(bytes.as_ptr(), out, length);
+    }
+    length as u32
+}
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn island_net_sent(n: *mut NativeNet) {
+    let n = unsafe { &mut *n };
+    if let Some(packet) = n.pending.take() {
+        n.client.sent(&packet);
+    }
+}
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn island_net_step(
+    n: *mut NativeNet,
+    s: *mut Island,
+    x: f32,
+    z: f32,
+    flags: u32,
+) {
+    let n = unsafe { &mut *n };
+    let s = unsafe { &mut *s };
+    let input = host_input(x, z, flags);
+    if let Some(state) = n.client.step(input, s.motion.expression) {
+        s.accept_motion(state);
+    } else {
+        s.advance(input);
+    }
+    if let Some(state) = n.client.remote_state() {
+        n.remote.accept_motion(state);
+    }
+}
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn island_net_actor(n: *mut NativeNet) -> *mut Island {
+    let n = unsafe { &mut *n };
+    if n.client.remote_state().is_some() {
+        &mut *n.remote
+    } else {
+        core::ptr::null_mut()
+    }
+}
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn island_net_snapshot(n: *const NativeNet, out: *mut NetworkSnapshot) {
+    let n = unsafe { &*n };
+    let c = &n.client;
+    let remote = c.remote_state();
+    unsafe {
+        *out = NetworkSnapshot {
+            linked: u32::from(c.epoch != 0),
+            player: c.player as u32,
+            remote: u32::from(remote.is_some()),
+            pending: c.pending() as u32,
+            acknowledged: c.acknowledged() as u32,
+            predicted: c.predicted() as u32,
+            corrections: c.corrections,
+            replayed: c.replayed,
+            rejected: c.rejected,
+            stalled: c.stalled,
+            remote_x: remote.map_or(0., |s| s.position.x),
+            remote_z: remote.map_or(0., |s| s.position.z),
+            remote_tick: remote.map_or(0, |s| s.tick as u32),
+        };
+    }
 }

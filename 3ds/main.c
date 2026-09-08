@@ -4,6 +4,7 @@
 #include "pocket3d.h"
 #include "perf.h"
 #include "devlink.h"
+#include "network.h"
 #include "view.h"
 #include <3ds.h>
 #include <citro2d.h>
@@ -16,11 +17,16 @@ static C3D_RenderTarget *top, *bottom;
 static C2D_TextBuf textbuf;
 static Island *island;
 static IslandSnapshot state;
+static Island *remote_actor;
+static IslandNetworkSnapshot network_state;
 static P3D_Mesh terrain, shadow;
 static P3D_SkinMesh avatar;
 static Island *replicas[ISLAND_MAX_ACTORS];
 static unsigned benchmark_generation, benchmark_tick;
 static const IslandBenchmark *benchmark;
+static Island *scene_actor(unsigned i) {
+  return benchmark->enabled ? replicas[i] : (i == 0 ? island : remote_actor);
+}
 static IslandOrbit orbit;
 static IslandView camera_view;
 #ifndef ISLAND_BUILD_ID
@@ -201,6 +207,17 @@ static void top_ui(void) {
   text(19, 14, .46, ink, "POCKET ISLAND");
   roundrect(306, 10, 84, 23, 8, paper);
   text(316, 14, .36, muted, benchmark->enabled ? "LOAD TEST" : island_dev_script()->room);
+  if (remote_actor && !benchmark->enabled) {
+    IslandSnapshot visitor; island_snapshot(remote_actor, &visitor);
+    float x, y;
+    island_view_project(&camera_view, visitor.anchor_x - state.cam_x, visitor.anchor_y,
+                        visitor.anchor_z - state.cam_z, &x, &y);
+    if (x > 28 && x < 372 && y > 42 && y < 205) {
+      char label[24]; snprintf(label, sizeof label, "Visitor %u", (unsigned)(3 - network_state.player));
+      roundrect(x - 28, y - 13, 56, 14, 5, paper);
+      centered(x, y - 11, .28, accent, label);
+    }
+  }
   // A readable ground shadow roots the avatar in the 3D scene.
   char message[193];
   if (!benchmark->enabled && island_bubble(island, (uint8_t *)message, sizeof message)) {
@@ -270,7 +287,10 @@ static void bottom_ui(void) {
   }
   rect(0, 0, 320, 240, paper);
   text(15, 9, .72, ink, island_dev_script()->title);
-  text(16, 34, .37, muted, "MIRA  /  1 visitor  /  local demo");
+  char connection[80];
+  if (network_state.linked) snprintf(connection, sizeof connection, "MIRA %u  /  %u visitors  /  connected", (unsigned)network_state.player, (unsigned)(1 + network_state.remote));
+  else snprintf(connection, sizeof connection, "MIRA  /  1 visitor  /  waiting for companion");
+  text(16, 34, .37, muted, connection);
   for (int i = 0; i < 2; i++) {
     roundrect(14 + i * 149, 56, 143, 27, 8, i == tab ? mint : linecol);
     centered(85 + i * 149, 61, .45, i == tab ? paper : muted,
@@ -441,7 +461,7 @@ int main(void) {
   island = island_new();
   if (!island || !p3d_init(color_shbin, color_shbin_size) || !p3d_skin_init(skin_shbin, skin_shbin_size))
     return 3;
-  if (!island_dev_init()) return 7;
+  if (!island_dev_init() || !island_network_init(island)) return 7;
   benchmark = island_dev_benchmark();
 #ifdef ISLAND_CAPTURE
   if (!island_dev_self_test()) return 8;
@@ -482,6 +502,7 @@ int main(void) {
     if (previous_menu != perf_visible) pending_actions = 0;
     island_snapshot(island, &state);
     island_dev_poll(&state, &perf, frame);
+    island_network_poll(benchmark->enabled);
     bool benchmark_changed = benchmark_generation != benchmark->generation;
     if (benchmark_changed) {
       benchmark_reset();
@@ -595,7 +616,7 @@ int main(void) {
     while (accumulator >= 1. / 30.) {
       if (benchmark->enabled) {
         if (benchmark->animated) benchmark_step();
-      } else island_step(island, x, z, (flags & 1) | pending_actions);
+      } else island_network_step(island, x, z, (flags & 1) | pending_actions);
       steps++;
       pending_actions = 0;
       accumulator -= 1. / 30.;
@@ -605,11 +626,13 @@ int main(void) {
 #ifdef ISLAND_CAPTURE
     alpha = 1.f;
 #endif
-    unsigned actor_count = benchmark->enabled ? benchmark->actors : 1;
+    remote_actor = island_network_remote();
+    island_network_snapshot(&network_state);
+    unsigned actor_count = benchmark->enabled ? benchmark->actors : (remote_actor ? 2 : 1);
     bool animated = !benchmark->enabled || benchmark->animated;
     if (animated || benchmark_changed) {
       for (unsigned i = 0; i < actor_count; i++)
-        island_present(benchmark->enabled ? replicas[i] : island, animated ? alpha : 1.f);
+        island_present(scene_actor(i), animated ? alpha : 1.f);
     }
     if (benchmark->enabled) island_dev_benchmark_actors(replicas, actor_count);
     island_snapshot(island, &state);
@@ -637,7 +660,7 @@ int main(void) {
     uint32_t visibility[ISLAND_MAX_ACTORS];
     for (unsigned i = 0; i < actor_count; i++) {
       uint32_t count;
-      palettes[i] = island_palette(benchmark->enabled ? replicas[i] : island, &count);
+      palettes[i] = island_palette(scene_actor(i), &count);
       if (count != avatar.joint_count) return 9;
       visibility[i] = p3d_skin_visible(palettes[i], count);
       n += p3d_skin_count(&avatar, visibility[i]) + 96;
@@ -663,7 +686,7 @@ int main(void) {
     if (draw_terrain) p3d_draw(&terrain);
     for (unsigned i = 0; i < actor_count; i++) {
       float p[3];
-      island_shadow(benchmark->enabled ? replicas[i] : island, p);
+      island_shadow(scene_actor(i), p);
       C3D_Mtx transform, shadow_vp;
       Mtx_Identity(&transform);
       Mtx_Translate(&transform, p[0], p[1], p[2], true);
@@ -733,6 +756,7 @@ int main(void) {
     island_free(replicas[i]);
   }
   p3d_exit();
+  island_network_shutdown();
   island_dev_shutdown();
   island_free(island);
   C2D_TextBufDelete(textbuf);
