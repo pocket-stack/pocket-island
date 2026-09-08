@@ -18,7 +18,7 @@ the app updates its submodule after those changes reach `main`.
 
 | PocketJS / Pocket3D | Pocket Island |
 | --- | --- |
-| TRS sampling, skeleton hierarchy, P3M1 decoding | Clip names, gait phase, blending and expression visibility |
+| TRS sampling, skeleton hierarchy and pose interpolation (`pocket3d-anim`); shared skin bindings and P3M1 decoding (`pocket3d-mesh`) | Clip names, gait phase, transition timing and expression visibility |
 | Resident indexed PICA geometry, palette upload, colored-mesh lighting mechanism | Island sun parameters, terrain, shadows and character assets |
 | Paired TCP framing, authentication and screenshot transport | `island.*` commands, JS candidate validation/persistence, benchmark workloads |
 | 3DS native compiler and QuickJS archive support | Executable lifecycle, C ABI, keyboard/UI, input mapping, orbit and speech layout |
@@ -43,7 +43,7 @@ ISLAND_LINK_E2E=1 bun island e2e
 ```
 
 The native `3ds/core` manifest remains a separate Rust build for the ARM target;
-it consumes this repository's app library and the same submodule sampler.
+it consumes this repository's app library and the same submodule animation/mesh crates.
 JavaScript-only edits retain `bun island push` and `bun island dev`. A native
 or embedded-asset change requires an updated `.3dsx`.
 
@@ -52,3 +52,31 @@ unchanged asset/layout inputs and eleven upper-screen action frames. The
 maximum color-channel difference is one byte level after lighting became
 caller-provided. Ten lower-screen frames are byte-identical; the debug panel
 with its changed build label is excluded.
+
+## Shared mesh and pose refactor
+
+[PocketJS PR #385](https://github.com/pocket-stack/pocketjs/pull/385), main
+commit **`5667d3778a5d3f2ba6f58574d93274435faed7af`**, moves mesh
+ownership into `pocket3d-mesh`. Desktop glTF and handheld P3M1 use the same
+`Skin` binding and joint-palette evaluator. CPU and GPU preparation share the
+colored profile's visibility rule. Island consumes the shared pose interpolator
+for clip transitions and display frames; expression visibility remains app policy.
+
+[Pixel comparison](../evidence/shared-mesh-parity.json) matches eleven upper
+frames and ten regular lower frames byte-for-byte against the previous main
+build. The debug lower screen is excluded because its build label changes.
+[Runtime evidence](../evidence/shared-mesh-live.json) covers the native connection,
+script replacement/rejection, camera, chat and crowd paths under Azahar.
+These receipts identify their build/source inputs and do not measure hardware FPS.
+
+## Native source preparation
+
+[PocketJS PR #386](https://github.com/pocket-stack/pocketjs/pull/386) extracts
+verified source acquisition from native guest-bundle tooling. Island setup uses
+that dependency-free helper to prepare the pinned QuickJS C checkout. It no
+longer fetches the PSP Cargo graph, Rust source tree or LLVM submodule.
+
+A cold-source build produces the same 1,307,942-byte QuickJS archive as the
+previous source path, SHA-256
+`fa1426d87a9c97ddd8f759845355985bd7b2726970c93cb74e26a90b7b1b4a85`.
+The helper checks commit, source version and checkout cleanliness before use.

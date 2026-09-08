@@ -23,6 +23,7 @@ version = "0.1.0"
 dependencies = [
  "libm",
  "pocket3d-anim",
+ "pocket3d-mesh",
 ]
 
 [[package]]
@@ -30,4 +31,12 @@ name = "pocket3d-anim"
 version = "0.1.0"
 dependencies = [
  "glam",
+]
+
+[[package]]
+name = "pocket3d-mesh"
+version = "0.1.0"
+dependencies = [
+ "glam",
+ "pocket3d-anim",
 ]

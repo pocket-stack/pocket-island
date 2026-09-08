@@ -9,6 +9,7 @@ publish = false
 
 [dependencies]
 pocket3d-anim = { path = "vendor/pocketjs/engine/pocket3d/crates/pocket3d-anim" }
+pocket3d-mesh = { path = "vendor/pocketjs/engine/pocket3d/crates/pocket3d-mesh" }
 libm = "0.2"
 
 [profile.dev]

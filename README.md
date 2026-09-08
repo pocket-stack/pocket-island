@@ -253,7 +253,8 @@ linear TRS channels. No Blender or glTF parser runs on the handheld.
 
 | Location | Owns |
 | --- | --- |
-| `vendor/pocketjs/engine/pocket3d/crates/pocket3d-anim` | Shared Pocket3D animation sampling, hierarchy evaluation, bounded P3M1 decoding and CPU skinning; builds with `no_std + alloc` |
+| `vendor/pocketjs/engine/pocket3d/crates/pocket3d-anim` | Shared skeletal sampling, hierarchy evaluation and pose interpolation; `no_std + alloc` |
+| `vendor/pocketjs/engine/pocket3d/crates/pocket3d-mesh` | Shared skin bindings, P3M1 decoding, colored CPU reference and resident GPU packing; `no_std + alloc` |
 | `vendor/pocketjs/engine/pocket3d/crates/pocket3d/src/anim.rs` | Existing desktop import path, re-exporting the same sampler |
 | `vendor/pocketjs/engine/pocket3d/backends/citro3d` | Colored triangle buffers, PICA200 shader and depth / blend state |
 | `src` | Fixed 30 Hz application state, collision, locomotion, emotes, face selection and conversation |
@@ -261,6 +262,11 @@ linear TRS channels. No Blender or glTF parser runs on the handheld.
 | `3ds` | Native lifecycle, controller mapping, dual-screen UI, software keyboard, script adapter and C ABI |
 | `vendor/pocketjs/hosts/3ds/src/devserver.c` | Shared paired discovery, authenticated control, bounded socket pump and screenshot transport |
 | `assets` | Blender source, exported character / island and generated scene layout |
+
+The app uses the shared pose interpolator for transitions and display frames.
+Expression layers override scale as a discrete visibility choice. CPU reference
+rendering and the native GPU host read one Island light configuration through
+the C ABI; the native host reads it once at startup.
 
 **Island owns the specialized runtime.** Gait/stride policy, expression names,
 visibility selection, collision layout, camera limits, lighting parameters,
@@ -271,7 +277,8 @@ this repository then advances its recorded submodule commit.
 
 This application does not run a PocketJS guest and is not a `.pocket` package.
 No sibling checkout, npm framework install or Island copy inside PocketJS is
-required. `bun run setup` initializes the pinned submodule and compiler sources;
+required. `bun run setup` initializes the pinned submodule, Rust compiler and verified
+QuickJS C source checkout without fetching the PSP dependency graph;
 Bun tools use only built-in APIs and shared native tooling.
 See [migration and dependency boundaries](docs/MIGRATION.md).
 

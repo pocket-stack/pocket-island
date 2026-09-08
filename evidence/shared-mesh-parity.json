@@ -1,0 +1,126 @@
+{
+  "environment": "Azahar software PICA",
+  "hardware_timing": false,
+  "baseline_application_revision": "55655aa68af9b1646fc5b7653f565c64e946ab5e",
+  "baseline_engine_revision": "627d0eeeb62e79e6eebdebeccc754e151ef7fd31",
+  "candidate_engine_revision": "f7455fca585c3a1525ebaa26b3b8c72605f8de8c",
+  "candidate_application": "working tree refactor/shared-mesh-runtime; source hashes below identify native inputs",
+  "source_sha256": {
+    "src/lib.rs": "1f0ad7dfa0bb460b7edae5a85e76013126ef3a49eb0ad45a4cc22a6ed81fb98d",
+    "3ds/main.c": "76ca934926b7f74a26eee2d1e8d4f06666bd1eed4b4c802725aa92fc769ea223",
+    "3ds/core/src/lib.rs": "2d02e750e63f86f66085d3a7ba1224dc59808c5e802793cb4a58c204f34a5d08",
+    "3ds/island.h": "7e3b1702e1c7564f79b7d1443a6ada49acd6d3ca37dd8f1ceb51e431b4549c9b"
+  },
+  "capture_sha256": {
+    "before": "937b9e895c2011ec5074718ab5cc08dff166cf502955649fd074913aec2412f4",
+    "after": "3ab23e07f11d014c3e66f6cb1a30353276e1fe26fcec289ef91cd992e6e9801a"
+  },
+  "frames": [
+    {
+      "path": "bottom-001.bgr",
+      "max_channel_delta": 0,
+      "changed_channels": 0
+    },
+    {
+      "path": "bottom-031.bgr",
+      "max_channel_delta": 0,
+      "changed_channels": 0
+    },
+    {
+      "path": "bottom-061.bgr",
+      "max_channel_delta": 0,
+      "changed_channels": 0
+    },
+    {
+      "path": "bottom-091.bgr",
+      "max_channel_delta": 0,
+      "changed_channels": 0
+    },
+    {
+      "path": "bottom-121.bgr",
+      "max_channel_delta": 0,
+      "changed_channels": 0
+    },
+    {
+      "path": "bottom-151.bgr",
+      "max_channel_delta": 0,
+      "changed_channels": 0
+    },
+    {
+      "path": "bottom-181.bgr",
+      "max_channel_delta": 0,
+      "changed_channels": 0
+    },
+    {
+      "path": "bottom-211.bgr",
+      "max_channel_delta": 0,
+      "changed_channels": 0
+    },
+    {
+      "path": "bottom-241.bgr",
+      "max_channel_delta": 0,
+      "changed_channels": 0
+    },
+    {
+      "path": "bottom-301.bgr",
+      "max_channel_delta": 0,
+      "changed_channels": 0
+    },
+    {
+      "path": "top-001.bgr",
+      "max_channel_delta": 0,
+      "changed_channels": 0
+    },
+    {
+      "path": "top-031.bgr",
+      "max_channel_delta": 0,
+      "changed_channels": 0
+    },
+    {
+      "path": "top-061.bgr",
+      "max_channel_delta": 0,
+      "changed_channels": 0
+    },
+    {
+      "path": "top-091.bgr",
+      "max_channel_delta": 0,
+      "changed_channels": 0
+    },
+    {
+      "path": "top-121.bgr",
+      "max_channel_delta": 0,
+      "changed_channels": 0
+    },
+    {
+      "path": "top-151.bgr",
+      "max_channel_delta": 0,
+      "changed_channels": 0
+    },
+    {
+      "path": "top-181.bgr",
+      "max_channel_delta": 0,
+      "changed_channels": 0
+    },
+    {
+      "path": "top-211.bgr",
+      "max_channel_delta": 0,
+      "changed_channels": 0
+    },
+    {
+      "path": "top-241.bgr",
+      "max_channel_delta": 0,
+      "changed_channels": 0
+    },
+    {
+      "path": "top-301.bgr",
+      "max_channel_delta": 0,
+      "changed_channels": 0
+    },
+    {
+      "path": "top-331.bgr",
+      "max_channel_delta": 0,
+      "changed_channels": 0
+    }
+  ],
+  "excluded": "bottom-331.bgr contains build provenance text"
+}
