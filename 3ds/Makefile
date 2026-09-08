@@ -16,7 +16,7 @@ CFLAGS += -DJS_NO_NAN_BOXING -DPOCKETJS_HOST_ABI=0 -DPOCKETJS_TARGET_ID=\"p3d-is
 ifeq ($(FLAVOR),capture)
 CFLAGS += -DISLAND_CAPTURE
 endif
-OBJECTS := $(BUILD)/main.o $(BUILD)/pocket3d.o $(BUILD)/color_shbin.o $(BUILD)/skin_shbin.o $(BUILD)/script.o $(BUILD)/devlink.o $(BUILD)/devserver.o $(BUILD)/dev_protocol.o $(BUILD)/soc.o $(BUILD)/app_js.o
+OBJECTS := $(BUILD)/main.o $(BUILD)/pocket3d.o $(BUILD)/color_shbin.o $(BUILD)/skin_shbin.o $(BUILD)/script.o $(BUILD)/devlink.o $(BUILD)/devserver.o $(BUILD)/dev_protocol.o $(BUILD)/soc.o $(BUILD)/offload.o $(BUILD)/network.o $(BUILD)/app_js.o
 all: $(BUILD)/pocket-island.3dsx
 $(BUILD):
 	mkdir -p $@
@@ -45,6 +45,10 @@ $(BUILD)/devserver.o: $(HOST)/src/devserver.c $(HOST)/src/devserver.h FORCE
 $(BUILD)/dev_protocol.o: $(HOST)/src/dev_protocol.c $(HOST)/src/dev_protocol.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 $(BUILD)/soc.o: $(HOST)/src/soc.c $(HOST)/src/soc.h | $(BUILD)
+	$(CC) $(CFLAGS) -c $< -o $@
+$(BUILD)/offload.o: $(HOST)/src/offload.c $(HOST)/src/offload.h $(HOST)/src/offload_queue.h FORCE
+	$(CC) $(CFLAGS) -DPOCKETJS_OFFLOAD_KEY='"sdmc:/pocketjs/offload/edc8784e4061e8bd.key"' -c $< -o $@
+$(BUILD)/network.o: $(SOURCE)/network.c $(SOURCE)/network.h FORCE
 	$(CC) $(CFLAGS) -c $< -o $@
 $(BUILD)/main.o: $(SOURCE)/main.c $(SOURCE)/island.h $(SOURCE)/perf.h $(SOURCE)/view.h $(SOURCE)/devlink.h $(BACKEND)/pocket3d.h $(BUILD)/color_shbin.h $(BUILD)/skin_shbin.h FORCE
 	$(CC) $(CFLAGS) -c $< -o $@

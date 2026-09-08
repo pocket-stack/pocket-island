@@ -1,6 +1,7 @@
 /* The shared authenticated Pocket Runtime wire owns sockets, pairing,
  * backpressure and pixel transport. This adapter owns native app commands. */
 #include "devlink.h"
+#include "network.h"
 #include "app_js.h"
 #include "devserver.h"
 #include "soc.h"
@@ -186,7 +187,14 @@ static void stats(const PerfStats *p, const IslandSnapshot *s, unsigned frame, c
   number(obj, "benchmarkEnabled", benchmark.enabled);
   number(obj, "benchmarkGeneration", benchmark.generation);
   number(obj, "measuredBenchmarkGeneration", p->latest.workload_generation);
-  number(obj, "actorCount", benchmark.enabled ? benchmark.actors : 1);
+  IslandNetworkSnapshot net;
+  island_network_snapshot(&net);
+  number(obj, "actorCount", benchmark.enabled ? benchmark.actors : 1 + net.remote);
+  number(obj, "online", net.linked); number(obj, "playerId", net.player);
+  number(obj, "remoteOnline", net.remote); number(obj, "remoteX", net.remote_x); number(obj, "remoteZ", net.remote_z);
+  number(obj, "remoteTick", net.remote_tick); number(obj, "inputAck", net.acknowledged); number(obj, "inputPredicted", net.predicted);
+  number(obj, "inputPending", net.pending); number(obj, "corrections", net.corrections); number(obj, "replayedSteps", net.replayed);
+  number(obj, "networkRejected", net.rejected); number(obj, "predictionStalled", net.stalled);
   string(obj, "actorMotion", benchmark.enabled ? (benchmark.animated ? "walk" : "frozen") : "player");
   number(obj, "terrainEnabled", !benchmark.enabled || benchmark.terrain);
   number(obj, "linearFreeBytes", linearSpaceFree());

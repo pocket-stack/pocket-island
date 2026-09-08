@@ -43,10 +43,19 @@ Launcher. Assets are embedded; there is no separate asset folder to install.
 | L + R + SELECT | Open / close the native performance panel |
 | Lower screen | Send quick phrases, select expressions, wave, sit or cheer |
 
-**This build has one local visitor.** Sending text adds a local conversation
-entry and a seven-second bubble attached to Mira's animated head. It does not
-connect to a server, transmit voice, or represent another player's avatar.
-The UI identifies the room and delivery as local.
+**Two consoles can share the island through a paired companion.** Local input
+is predicted; the companion confirms movement using the same Rust simulation;
+remote avatars use buffered snapshots and pose interpolation. See
+[the two-console setup and architecture](MULTIPLAYER.md).
+
+```sh
+bun island upload <first-device-ip> <second-device-ip>
+bun island companion <first-device-ip> <second-device-ip>
+```
+
+Sending text creates a local conversation entry and a seven-second speech
+bubble. Chat delivery is labeled local; this room synchronizes movement,
+actions and expressions.
 
 ## Connected development
 
@@ -138,7 +147,7 @@ the same shortcut as Pocket Runtime, but is owned by this native host. This
 example links the shared development transport and exposes native performance
 and application controls through its own adapter.
 `B` closes the panel, `X` saves the measurements, and `START` saves and exits
-to Homebrew Launcher. Circle Pad movement continues while the panel is open.
+to Homebrew Launcher. The panel consumes gameplay input while it is open.
 
 Measurements run with the panel closed. Walk, run, sit and send a message for
 at least 30 seconds, then press `START`. Open ftpd and retrieve
@@ -303,8 +312,9 @@ A room transport should carry presence separately from reliable messages:
 peer ID, sequence number, position, facing, action, action start tick and
 expression. Each remote avatar can sample the same clips and expose its own
 head anchor; bubble lifetime starts at local receipt, without trusting a remote
-wall clock. Voice, moderation, identity, persistence and real remote-avatar
-interpolation are subsequent work; this demo implements none of those services.
+wall clock. The companion now implements remote-avatar interpolation and session-bound
+presence; [MULTIPLAYER.md](MULTIPLAYER.md) describes its state and recovery.
+Voice, moderation, account identity and message persistence remain subsequent work.
 
 ## Validation
 

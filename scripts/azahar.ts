@@ -20,7 +20,7 @@ for (const dir of ["nand", "sysdata"]) if (existsSync(`${source}/${dir}`)) cpSyn
 let config = readFileSync(`${source}/config/qt-config.ini`, "utf8");
 // Software captures provide the pixel reference. Live timing-window tests use
 // OpenGL: software rasterization advances emulated time too slowly for deadlines.
-for (const [key, value] of Object.entries({ graphics_api: process.env.ISLAND_GRAPHICS_API ?? (live ? "1" : "0"), resolution_factor: "1", use_vsync: "false", frame_limit: "1000", use_disk_shader_cache: "false", check_for_update_on_start: "false" })) {
+for (const [key, value] of Object.entries({ use_custom_storage: "false", nand_directory: `${user}/nand/`, sdmc_directory: `${user}/sdmc/`, graphics_api: process.env.ISLAND_GRAPHICS_API ?? (live ? "1" : "0"), resolution_factor: "1", use_vsync: "false", frame_limit: "1000", use_disk_shader_cache: "false", check_for_update_on_start: "false" })) {
   const line = new RegExp(`^${key}=.*$`, "m");
   if (!line.test(config)) throw new Error(`Missing emulator setting: ${key}`);
   config = config.replace(line, `${key}=${value}`);

@@ -22,6 +22,7 @@ name = "pocket-island"
 version = "0.1.0"
 dependencies = [
  "libm",
+ "pocket-sim",
  "pocket3d-anim",
  "pocket3d-mesh",
 ]
@@ -33,6 +34,10 @@ dependencies = [
  "pocket-island",
  "pocket3d-mesh",
 ]
+
+[[package]]
+name = "pocket-sim"
+version = "0.1.0"
 
 [[package]]
 name = "pocket3d-anim"
