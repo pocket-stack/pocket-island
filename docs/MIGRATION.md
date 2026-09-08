@@ -68,3 +68,15 @@ build. The debug lower screen is excluded because its build label changes.
 [Runtime evidence](../evidence/shared-mesh-live.json) covers the native connection,
 script replacement/rejection, camera, chat and crowd paths under Azahar.
 These receipts identify their build/source inputs and do not measure hardware FPS.
+
+## Native source preparation
+
+[PocketJS PR #386](https://github.com/pocket-stack/pocketjs/pull/386) extracts
+verified source acquisition from native guest-bundle tooling. Island setup uses
+that dependency-free helper to prepare the pinned QuickJS C checkout. It no
+longer fetches the PSP Cargo graph, Rust source tree or LLVM submodule.
+
+A cold-source build produces the same 1,307,942-byte QuickJS archive as the
+previous source path, SHA-256
+`fa1426d87a9c97ddd8f759845355985bd7b2726970c93cb74e26a90b7b1b4a85`.
+The helper checks commit, source version and checkout cleanliness before use.

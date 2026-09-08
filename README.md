@@ -277,7 +277,8 @@ this repository then advances its recorded submodule commit.
 
 This application does not run a PocketJS guest and is not a `.pocket` package.
 No sibling checkout, npm framework install or Island copy inside PocketJS is
-required. `bun run setup` initializes the pinned submodule and compiler sources;
+required. `bun run setup` initializes the pinned submodule, Rust compiler and verified
+QuickJS C source checkout without fetching the PSP dependency graph;
 Bun tools use only built-in APIs and shared native tooling.
 See [migration and dependency boundaries](docs/MIGRATION.md).
 
